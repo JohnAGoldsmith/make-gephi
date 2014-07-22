@@ -4,7 +4,7 @@
 #									#
 #	This program takes a word neighbor list				#	
 #	and creates a gephi-readable file				#
-#	John Goldsmith and Wang Xiuli 2012.				#
+#	John Goldsmith and Wang Xiuli 2012.	Jackson Lee 2014			#
 #									#
 #-----------------------------------------------------------------------#
 
@@ -36,8 +36,8 @@ sys.path.append('/usr/lib64/graphviz/python/')
 
 unicodeFlag 		= False
 FileEncoding 		= ""   # "utf-16"
-language 		= "english-encarta"
-shortname 		= "english-encarta"
+language 		= "english-brown"
+shortname 		= "english-brown"
 
 print "Language:", language
 print "Name: ", shortname
@@ -49,14 +49,24 @@ if len(sys.argv) < 2:
 
 	shortfilename 		= ""
 	outshortfilename 	= ""
-	languagename 		= "english-encarta"
+	languagename 		= "english"
 
 	datafolder    		= "../../data/"
 	neighborfolder  	= datafolder + languagename + "/neighbors/"
 	outfolder     		= datafolder + languagename + "/gexf/"
 	signaturefolder		= datafolder + languagename + "/lxa/"
 
- 	infilename 		=   neighborfolder  + shortname + "_nearest_neighbors.txt" 
+	neighborFileList = list()
+	for f in os.listdir(neighborfolder):
+		if f.endswith('nearest_neighbors.txt'):
+			neighborFileList.append(neighborfolder + f)
+
+	neighborFileListKeyboardText = [str(idx+1)+'. '+s+'\n' for (idx,s) in enumerate(neighborFileList)]
+	infilenameKeyboard = raw_input('\nwhich file to read? (enter number)\n\n'
+									'%s\n' % ''.join(neighborFileListKeyboardText)
+									)
+	infilename = neighborFileList[int(infilenameKeyboard)-1]
+
 	signaturefilename 	=  signaturefolder + shortname + "_sigtransforms.txt"
 else:
 # More work needs to be done here:
@@ -71,10 +81,10 @@ if len(seedwordKeyboard) > 0:
 	seedword = seedwordKeyboard
 else:
 	seedword = ""
-numberNeighborsKeyboard = raw_input("How many neighbors? (default is 3)")
 
 #---------------------------------------------------------------------------#
 
+numberNeighborsKeyboard = raw_input("How many neighbors? (default is 3)")
 if numberNeighborsKeyboard != "":
 	howManyNeighbors = int(numberNeighborsKeyboard)
 else:
@@ -90,7 +100,7 @@ else:
 
 #---------------------------------------------------------------------------#
 
-ShowAllNodes = raw_input("Show only neighbor nodes on graph? (y/n)")
+ShowAllNodes = raw_input("Show only neighbor nodes on graph? (N/y)")
 if ShowAllNodes == "y" or ShowAllNodes == "Y":
 	ShowAllNodes = False
 else:
@@ -103,7 +113,7 @@ else:
 #---------------------------------------------------------------------------#
 
 outnametag 		= "_" + seedwordproxy + "_" + str( howManyNeighbors) + "-" + str( howManyGenerations )
-outfilenameGephi	= outfolder + language + shortname +  outnametag + ".gexf" 
+outfilenameGephi	= outfolder + shortname +  outnametag + ".gexf" 
 if unicodeFlag:
 	outfileGephi 	= codecs.open (outfilenameGephi, "w", encoding = FileEncoding)
 #infile 		= codecs.open (filename, encoding = FileEncoding)
@@ -145,22 +155,24 @@ class graph:
 #---------------------------------------------------------------------------#
 def readfile(infile, wordtoindex, indextoword, wordindex, wordlist, myedges):
 #---------------------------------------------------------------------------#
-        diameter = dict()
+	diameter = dict()
 	howManyNeighborsInUnderlyingData = 0	 
 	language = "" 
  	print " ******** starting to read words"  	
 	for line in infile:	 
  
 		words = line.split()
-		if len(words) == 0:
+		if line.startswith('#') or len(words) == 0:
 			continue
-	 
-		if words[0] == "#" and len(words) == 3 and len(language) == 0:
-			language = words[1]
-			shortfilename = words[2]
-			continue
-		if words[0] == "#":
-			continue
+
+#		if words[0] == "#" and len(words) < 3:
+#			continue
+#		if words[0] == "#" and words[1] == 'language:':
+#			language = words[1]
+#			continue
+#		if words[0] == "#" and words[1] == 'corpus:':
+#			shortfilename = words[2]
+#			continue
 		for word in words:
 			if howManyNeighborsInUnderlyingData == 0:
 				howManyNeighborsInUnderlyingData = len(words) - 1
@@ -173,18 +185,22 @@ def readfile(infile, wordtoindex, indextoword, wordindex, wordlist, myedges):
 
 		word = words[0]
 		wordlist.append(word)
-		for i in range(1, howManyNeighborsInUnderlyingData):
+
+		for i in range(1, howManyNeighborsInUnderlyingData+1):
 			neighborword = words[i]
 	
 			if not word in myedges: #my edges is used because we often need to iterate over the second variable (across a row, so to speak)
 				myedges[word] = dict()
                                 
 			myedges[word][neighborword]= 1
-                        if word not in diameter:
-                             diameter[word] = 0
-                        diameter[word] += 1
+#                        if word not in diameter:
+#                             diameter[word] = 0
+#                        diameter[word] += 1
                        
- 
+
+	for (idx, word) in enumerate(wordlist):
+		wordtoindex[word] = idx
+
 	for word in wordlist: 
 		wordno = wordtoindex[word]
 		for word2 in myedges[word]:   
@@ -197,7 +213,7 @@ def readfile(infile, wordtoindex, indextoword, wordindex, wordlist, myedges):
 #---------------------------------------------------------------------------#
 
 def printGephinodes2(outfileGephi,NodeFamilyDict, edgelist,ShowAllNodes):
-	print >>outfileGephi, "\t\t<nodes count=\" ", len(wordlist), " \"> "
+	print >>outfileGephi, "\t\t<nodes count=\"" + str(len(wordlist)) + "\"> "
 	print " length of nodefamily dict" , len(NodeFamilyDict)
  	for word in NodeFamilyDict:
 		i = wordtoindex[word]
@@ -391,6 +407,11 @@ else:
 	printGephinodes2(outfileGephi,NodeFamilyDict,edgelist_subset,ShowAllNodes)
 
 outfileGephi.close()
+
+if seedwordproxy == "All_Words":
+    outfilenameGephi_new = outfilenameGephi.replace('3-3', str(len(wordlist)))
+    os.rename(outfilenameGephi, outfilenameGephi_new)
+    outfilenameGephi = outfilenameGephi_new
 
 #------------------------------------------#
 #	end
